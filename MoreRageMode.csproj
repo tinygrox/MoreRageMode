@@ -1,0 +1,118 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <Nullable>disable</Nullable>
+
+        <DuckovPath>G:\Steam\steamapps\common\Escape from Duckov</DuckovPath>
+
+        <LangVersion>latest</LangVersion>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <OutputType>Library</OutputType>
+        <RootNamespace>tinygrox.DuckovMods.MoreRageMode</RootNamespace>
+        <AssemblyName>tinygrox.DuckovMods.MoreRageMode</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+        <GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+        <DebugSymbols>true</DebugSymbols>
+        <DebugType>none</DebugType>
+        <Optimize>false</Optimize>
+        <!-- 输出路径保持不变 -->
+        <OutputPath>..\Mods\MoreRageMode</OutputPath>
+        <DefineConstants>DEBUG;TRACE</DefineConstants>
+        <ErrorReport>prompt</ErrorReport>
+        <WarningLevel>4</WarningLevel>
+    </PropertyGroup>
+
+    <!-- Release 配置 -->
+    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+        <DebugType>none</DebugType>
+        <Optimize>true</Optimize>
+        <!-- 输出路径保持不变 -->
+        <OutputPath>..\Mods\MoreRageMode</OutputPath>
+        <DefineConstants>TRACE</DefineConstants>
+        <ErrorReport>prompt</ErrorReport>
+        <WarningLevel>4</WarningLevel>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Assembly-CSharp.dll" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Animancer*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Easy*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\EPO*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\FMOD*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\DOTween*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\ItemStatsSystem.dll" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\LeTai*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Newtonsoft*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Plugins.dll" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Sirenix*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Soda*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda.*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Unity*" Private="False"/>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\UniTask*" Private="False"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Lib.Harmony.Ref" Version="2.4.1"/>
+    </ItemGroup>
+    <PropertyGroup>
+        <SharedCodeSourceDir>H:\DuckovMods\SharedCode</SharedCodeSourceDir>
+        <SharedCodeTempDir>$(IntermediateOutputPath)SharedCodePreprocessed</SharedCodeTempDir>
+        <NewSharedCodeNamespace>$(RootNamespace).SharedCode</NewSharedCodeNamespace>
+        <NamespaceReplaceScript>$(MSBuildThisFileDirectory)ReplaceNamespace.ps1</NamespaceReplaceScript>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Remove="$(SharedCodeTempDir)\**\*.cs"/>
+    </ItemGroup>
+
+    <Target Name="PreprocessSharedCode" BeforeTargets="CoreCompile">
+        <Message Text="----- 开始预处理共享代码 (方案二) -----" Importance="high"/>
+        <Message Text="共享代码源目录: $(SharedCodeSourceDir)" Importance="high"/>
+        <Message Text="共享代码临时目录: $(SharedCodeTempDir)" Importance="high"/>
+        <Message Text="旧命名空间: tinygrox.DuckovMods.SharedCode" Importance="high"/>
+        <Message Text="新命名空间: $(NewSharedCodeNamespace)" Importance="high"/>
+
+        <RemoveDir Directories="$(SharedCodeTempDir)"/>
+        <MakeDir Directories="$(SharedCodeTempDir)"/>
+
+        <ItemGroup>
+            <SharedSourceFiles Include="$(SharedCodeSourceDir)\**\*.cs"/>
+        </ItemGroup>
+        <Copy SourceFiles="@(SharedSourceFiles)" DestinationFolder="$(SharedCodeTempDir)\%(RecursiveDir)"/>
+
+
+        <PropertyGroup>
+            <PowerShellCommand>powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(NamespaceReplaceScript)&quot; -Path &quot;$(SharedCodeTempDir)&quot; -OldNamespace &quot;tinygrox.DuckovMods.SharedCode&quot; -NewNamespace &quot;$(NewSharedCodeNamespace)&quot;</PowerShellCommand>
+        </PropertyGroup>
+        <Message Text="Actual PowerShell Command: $(PowerShellCommand)" Importance="high"/>
+        <Exec Command="$(PowerShellCommand)"/>
+
+        <ItemGroup>
+            <Compile Include="$(SharedCodeTempDir)\**\*.cs"/>
+        </ItemGroup>
+
+        <Message Text="----- 预处理共享代码完成 -----" Importance="high"/>
+    </Target>
+
+    <Target Name="GenerateInfoIniAfterBuild" AfterTargets="Build">
+
+        <PropertyGroup>
+            <InfoIniPath>$(OutputPath)info.ini</InfoIniPath>
+        </PropertyGroup>
+
+        <Message Text="Checking for $(InfoIniPath)..." Importance="high"/>
+        <Message Text="info.ini not found. Generating a new one." Importance="high" Condition="!Exists('$(InfoIniPath)')"/>
+
+        <ItemGroup Condition="!Exists('$(InfoIniPath)')">
+            <IniFileLines Include="name = $(RootNamespace)"/>
+            <IniFileLines Include="displayName = $(ProjectName)"/>
+            <IniFileLines Include="description  = 123"/>
+        </ItemGroup>
+
+        <WriteLinesToFile File="$(InfoIniPath)" Lines="@(IniFileLines)" Overwrite="true" Encoding="UTF-8" Condition="!Exists('$(InfoIniPath)')"/>
+    </Target>
+</Project>

@@ -19,25 +19,27 @@ public class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly Dictionary<CharacterRandomPreset, float> _originalGunCritRateGain = new();
     private const float SetEnemyHealthFactor = 1.5f;
     private const float SetEnemyReactionTimeFactor = 0.1f;
-    private const float SetEnemyAttackTimeSpaceFactor = 0.1f;
+    private const float SetEnemyAttackTimeSpaceFactor = 0.2f;
+    private const float SetGunScatterMultiplier = 0.01f;
+    private const float SetGunCritRateGain = 100f;
 
     protected override void OnAfterSetup()
     {
         ModLogger.Instance.DefaultModName = "tinygrox.DuckovMods.MoreRageMode";
 
         ApplyOrRestoreRuleRage(true);
-        HandleGunScatterMultiplierChange();
-        GameRulesManager.OnRuleChanged += HandleGunScatterMultiplierChange;
+        HandleRuleChange();
+        GameRulesManager.OnRuleChanged += HandleRuleChange;
     }
 
     protected override void OnBeforeDeactivate()
     {
-        GameRulesManager.OnRuleChanged -= HandleGunScatterMultiplierChange; // Unsubscribe from event
-        ApplyOrRestoreRuleRage(false); // Restore Rule original values
-        RestoreGunScatterMultipliers(); // Restore all gunScatterMultiplier values
+        GameRulesManager.OnRuleChanged -= HandleRuleChange;
+        ApplyOrRestoreRuleRage(false);
+        Restore();
     }
 
-    private void RestoreGunScatterMultipliers()
+    private void Restore()
     {
         if(GameRulesManager.Current.DisplayName.Equals("Rule_Rage".ToPlainText(), StringComparison.OrdinalIgnoreCase)) return;
 
@@ -70,8 +72,8 @@ public class ModBehaviour : Duckov.Modding.ModBehaviour
 
         foreach (object entryObj in entries)
         {
-            var rulesetFile = Traverse.Create(entryObj).Field("file").GetValue<RulesetFile>();
-            var ruleset = rulesetFile.Data;
+            RulesetFile rulesetFile = Traverse.Create(entryObj).Field("file").GetValue<RulesetFile>();
+            Ruleset ruleset = rulesetFile.Data;
 
             if (!ruleset.DisplayName.Equals("Rule_Rage".ToPlainText(), StringComparison.OrdinalIgnoreCase)) continue;
 
@@ -98,11 +100,11 @@ public class ModBehaviour : Duckov.Modding.ModBehaviour
         ModLogger.Log.Debug($"Current rule: {GameRulesManager.Current.DisplayName}");
     }
 
-    private void HandleGunScatterMultiplierChange()
+    private void HandleRuleChange()
     {
         if (!GameRulesManager.Current.DisplayName.Equals("Rule_Rage".ToPlainText(), StringComparison.OrdinalIgnoreCase))
         {
-            RestoreGunScatterMultipliers();
+            Restore();
             return;
         }
 
@@ -118,12 +120,22 @@ public class ModBehaviour : Duckov.Modding.ModBehaviour
 
             if (!_originalGunScatterMultipliers.ContainsKey(characterRandomPreset))
             {
-                _originalGunScatterMultipliers[characterRandomPreset] = characterRandomPreset.gunScatterMultiplier;
-                _originalGunCritRateGain[characterRandomPreset] = characterRandomPreset.gunCritRateGain;
+                if (characterRandomPreset.gunScatterMultiplier > SetGunScatterMultiplier)
+                {
+                    _originalGunScatterMultipliers[characterRandomPreset] = characterRandomPreset.gunScatterMultiplier;
+                    characterRandomPreset.gunScatterMultiplier = SetGunScatterMultiplier; // 准死你
+                }
             }
 
-            characterRandomPreset.gunScatterMultiplier = 0.01f; // 准死你
-            characterRandomPreset.gunCritRateGain = 100f; // 爆头爆死你
+            if (!_originalGunCritRateGain.ContainsKey(characterRandomPreset))
+            {
+                if (characterRandomPreset.gunCritRateGain < SetGunCritRateGain)
+                {
+                    _originalGunCritRateGain[characterRandomPreset] = characterRandomPreset.gunCritRateGain;
+                    characterRandomPreset.gunCritRateGain = SetGunCritRateGain; // 爆头爆死你
+                }
+            }
+
         }
 
         ModLogger.Log.Debug("Set gunScatterMultiplier to 0.01f for all CharacterRandomPresets (excluding player and empty display names).");
